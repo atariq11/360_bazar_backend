@@ -1,195 +1,269 @@
 const express = require("express");
-const router = new express.Router();
-const userdb = require("../models/users.model");
 const bcrypt = require("bcryptjs");
-const authenticate = require("../middlewares/authenticate");
 const jwt = require("jsonwebtoken");
+const joi = require('joi');
+const { checkAuthentication } = require('../services/auth.service');
+const jwtService = require('../services/jwt.service');
+const emailService = require('../services/email.service');
+const usersModel = require('../models/users.model');
+const authenticationMiddleware = require("../middlewares/authentication.middleware");
+const router = new express.Router();
+
+const {
+    ACCESS_TOKEN_SECRET,
+    REFRESH_TOKEN_SECRET,
+    ACCESS_TOKEN_LIFE,
+    REFRESH_TOKEN_LIFE,
+    PORT,
+    HOST
+} = process.env;
+
 
 router.post("/register", async (req, res) => {
-    const { fname, email, password, cpassword } = req.body;
 
-    if (!fname || !email || !password || !cpassword) {
-        res.status(422).json({ error: "fill all the details" })
+    const schema = joi.object().keys({
+        fullName: joi.string().required(),
+        email: joi.string().required(),
+        password: joi.string().required(),
+        roleId: joi.string().required()
+    });
+
+    const foundError = schema.validate(req.body).error;
+
+    if (foundError) {
+        return res.status(200).json({
+            success: false,
+            message: `Invalid payload: ${foundError.message}`
+        });
     }
 
-    try {
+    const { email } = req.body;
 
-        const preuser = await userdb.findOne({ email: email });
+    const foundUser = await usersModel.findOne({ email });
 
-        if (preuser) {
-            res.status(422).json({ error: "This Email is Already Exist" })
-        } else if (password !== cpassword) {
-            res.status(422).json({ error: "Password and Confirm Password Not Match" })
-        } else {
-            const finalUser = new userdb({
-                fname, email, password, cpassword
-            });
-
-            // here password hasing
-            const storeData = await finalUser.save();
-
-            res.status(201).json({ status: 201, storeData })
-
-        }
-
-    } catch (error) {
-        res.status(422).json(error);
-        console.log("catch block error");
+    if (foundUser) {
+        return res.status(200).json({
+            success: false,
+            message: "This User is Already Exist",
+            data: foundUser
+        });
     }
+
+    const newUser = await usersModel.create(req.body);
+
+    return res.status(200).json({
+        success: true,
+        message: "User Registered Successfully",
+        data: newUser
+    });
 });
 
 router.post("/login", async (req, res) => {
 
 
+    const schema = joi.object().keys({
+        email: joi.string().required(),
+        password: joi.string().required()
+    });
+
+    const foundError = schema.validate(req.body).error;
+
+    if (foundError) {
+        return res.status(200).json({
+            success: false,
+            message: `Invalid payload: ${foundError.message}`
+        });
+    }
+
+
     const { email, password } = req.body;
 
-    if (!email || !password) {
-        res.status(422).json({ error: "fill all the details" })
+    const foundUser = await usersModel.findOne({ email }).populate('role');
+
+    if (!foundUser) {
+        return res.status(200).json({
+            success: false,
+            message: `User not found`
+        });
     }
 
-    try {
-        const userValid = await userdb.findOne({ email: email });
+    const passwordMatched = await bcrypt.compare(password, foundUser.password);
 
-        if (userValid) {
+    if (!passwordMatched) {
+        return res.status(200).json({
+            success: false,
+            message: `Invalid password`
+        });
+    }
 
-            const isMatch = await bcrypt.compare(password, userValid.password);
+    const { _id: userId, role } = foundUser;
+    const { _id: roleId, code: roleCode } = role;
+    // token generate
+    const { accessToken, refreshToken } = await jwtService.genToken({ userId, email, roleId, roleCode });
 
-            if (!isMatch) {
-                res.status(422).json({ error: "invalid details" })
-            } else {
+    // cookiegenerate
+    res.cookie("userAccessToken", accessToken, {
+        expires: new Date(Date.now() + 9000000),
+        httpOnly: true
+    });
 
-                // token generate
-                const token = await userValid.generateAuthtoken();
+    res.cookie("userRefreshToken", refreshToken, {
+        expires: new Date(Date.now() + 9000000),
+        httpOnly: true
+    });
 
-
-
-                // cookiegenerate
-                res.cookie("usercookie", token, {
-                    expires: new Date(Date.now() + 9000000),
-                    httpOnly: true
-                });
-
-                const result = {
-                    userValid,
-                    token
-                }
-                res.status(201).json({ status: 201, result })
-            }
+    res.status(201).json({
+        success: true,
+        message: "Success",
+        data: {
+            accessToken,
+            refreshToken,
+            user: foundUser
         }
+    })
 
-    }
-    catch (error) {
-        res.status(401).json(error);
-        console.log("catch block");
-    }
+
 });
 
-router.get("/logout", authenticate, async (req, res) => {
-    try {
-        req.rootUser.tokens = req.rootUser.tokens.filter((curelem) => {
-            return curelem.token !== req.token
-        });
+router.get("/logout", authenticationMiddleware(), async (req, res) => {
 
-        res.clearCookie("usercookie", { path: "/" });
+    res.clearCookie("userAccessToken", { path: "/" });
+    res.clearCookie("userRefreshToken", { path: "/" });
 
-        req.rootUser.save();
+    res.status(201).json({
+        success: true,
+        message: "Success",
+        data: req.user.authUser
+    })
 
-        res.status(201).json({ status: 201 })
-
-    } catch (error) {
-        res.status(401).json({ status: 401, error })
-    }
 });
 
 router.post("/send-password-link", async (req, res) => {
-    console.log(req.body)
+
+
+    const schema = joi.object().keys({
+        email: joi.string().required()
+    });
+
+    const foundError = schema.validate(req.body).error;
+
+    if (foundError) {
+        return res.status(200).json({
+            success: false,
+            message: `Invalid payload: ${foundError.message}`
+        });
+    }
 
     const { email } = req.body;
 
-    if (!email) {
-        res.status(401).json({ status: 401, message: "Enter Your Email" })
-    }
-    try {
-        const userfind = await userdb.findOne({ email: email });
+    const foundUser = await usersModel.findOne({ email }).populate('role');
 
-        // token generate for reset password
-        const token = jwt.sign({ _id: userfind._id }, keysecret, {
-            expiresIn: "120s"
-
+    if (!foundUser) {
+        return res.status(200).json({
+            success: false,
+            message: `User not found`
         });
-
-        const setusertoken = await userdb.findByIdAndUpdate({ _id: userfind._id }, { verifytoken: token }, { new: true });
-
-
-        if (setusertoken) {
-            const mailOptions = {
-                from: process.env.EMAIL,
-                to: email,
-                subject: "Sending Email For password Reset",
-                text: `This Link Valid For 2 MINUTES http://localhost:3000/forgotpassword/${userfind.id}/${setusertoken.verifytoken}`
-            }
-
-            transporter.sendMail(mailOptions, (error, info) => {
-                if (error) {
-                    console.log("error", error);
-                    res.status(401).json({ status: 401, message: "email not send" })
-                } else {
-                    console.log("Email sent", info.response);
-                    res.status(201).json({ status: 201, message: "Email sent Succsfully" })
-                }
-            })
-
-        }
-
-    } catch (error) {
-        res.status(401).json({ status: 401, message: "invalid user" })
     }
 
+    const { _id: userId, role } = foundUser;
+    const { _id: roleId, code: roleCode } = role;
+
+    const { token } = await jwtService.getToken({ userId, email, roleId, roleCode }, "120s")
+
+    //const setusertoken = await usersModel.findByIdAndUpdate({ _id: foundUser._id }, { verifytoken: token }, { new: true });
+
+    const sent = await emailService.sendEmail({
+        to: email,
+        subject: "Sending Email For password Reset",
+        text: `This Link Valid For 2 MINUTES http://${HOST}:${PORT}/forgot-password/${foundUser._id}/${token}`
+    })
+
+    if (sent) {
+        return res.status(200).json({
+            success: true,
+            message: `Email sent`
+        });
+    } else {
+        return res.status(200).json({
+            success: false,
+            message: `Email rejected`
+        });
+    }
 
 });
 
-router.post("/forgot-password", async (req, res) => {
-    const { id, token } = req.params;
-    try {
-        const validuser = await userdb.findOne({ _id: id, verifytoken: token });
+router.get("/forgot-password/:userId/:token", async (req, res) => {
 
-        const verifyToken = jwt.verify(token, keysecret);
+    const schema = joi.object().keys({
+        userId: joi.string().required(),
+        token: joi.string().required()
+    });
 
-        if (validuser && verifyToken._id) {
-            res.status(201).json({ status: 201, validuser })
-        } else {
-            res.status(401).json({ status: 401, message: "user not exist" })
-        }
+    const foundError = schema.validate(req.params).error;
 
-    } catch (error) {
-        res.status(401).json({ status: 401, error })
+    if (foundError) {
+        return res.status(200).json({
+            success: false,
+            message: `Invalid payload: ${foundError.message}`
+        });
     }
+
+    const { userId, token } = req.params;
+
+    const authorization = `Bearer ${token}`;
+    const authUser = await checkAuthentication({ authorization })
+    const foundUser = await usersModel.findOne({ _id: userId });
+
+    if (!foundUser) {
+        return res.status(200).json({
+            success: false,
+            message: `User not found`
+        });
+    }
+
+    return res.status(200).json({
+        success: true,
+        message: `Success`,
+        data: authUser
+    });
 });
 
-router.post("/rest-password", async (req, res) => {
-    const { id, token } = req.params;
-
+router.post("/rest-password/:userId/:token", async (req, res) => {
+    const { userId, token } = req.params;
     const { password } = req.body;
 
-    try {
-        const validuser = await userdb.findOne({ _id: id, verifytoken: token });
+    const schema = joi.object().keys({
+        userId: joi.string().required(),
+        token: joi.string().required(),
+        password: joi.string().required()
+    });
 
-        const verifyToken = jwt.verify(token, keysecret);
+    const foundError = schema.validate({ userId, token, password }).error;
 
-        if (validuser && verifyToken._id) {
-            const newpassword = await bcrypt.hash(password, 12);
-
-            const setnewuserpass = await userdb.findByIdAndUpdate({ _id: id }, { password: newpassword });
-
-            setnewuserpass.save();
-            res.status(201).json({ status: 201, setnewuserpass })
-
-        } else {
-            res.status(401).json({ status: 401, message: "user not exist" })
-        }
-    } catch (error) {
-        res.status(401).json({ status: 401, error })
+    if (foundError) {
+        return res.status(200).json({
+            success: false,
+            message: `Invalid payload: ${foundError.message}`
+        });
     }
+
+    const authorization = `Bearer ${token}`;
+    const authUser = await checkAuthentication({ authorization })
+    const foundUser = await usersModel.findOne({ _id: userId });
+
+    if (!foundUser) {
+        return res.status(200).json({
+            success: false,
+            message: `User not found`
+        });
+    }
+
+    const updatedUser = await usersModel.findByIdAndUpdate({ _id: userId }, { password });
+    return res.status(200).json({
+        success: true,
+        message: `Success`,
+        data: updatedUser
+    });
 });
 
 

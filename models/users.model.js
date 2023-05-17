@@ -2,9 +2,9 @@ const mongoose = require("mongoose");
 const validator = require("validator");
 const bcrypt = require("bcryptjs");
 const { ObjectId } = mongoose.Schema.Types;
-const userSchema = new mongoose.Schema({
+const schema = new mongoose.Schema({
 
-    full_name: {
+    fullName: {
         type: String,
         required: true,
         trim: true
@@ -12,6 +12,7 @@ const userSchema = new mongoose.Schema({
 
     role: {
         type: ObjectId,
+        required: true,
         ref: "roles"
     },
 
@@ -34,7 +35,7 @@ const userSchema = new mongoose.Schema({
 
 });
 
-userSchema.pre("save", async function (next) {
+schema.pre(["save", "updateOne", "findByIdAndUpdate", "findOneAndUpdate"], async function (next) {
 
     if (this.isModified("password")) {
         this.password = await bcrypt.hash(this.password, 12);
@@ -44,6 +45,6 @@ userSchema.pre("save", async function (next) {
 
 });
 
-module.exports = new mongoose.model("users", userSchema);;
+module.exports = mongoose.model("users", schema);
 
 
