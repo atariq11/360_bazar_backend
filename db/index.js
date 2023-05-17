@@ -3,6 +3,7 @@ mongoose.set("strictQuery", false);
 
 const DB_CON_URL = process.env.DB_CON_URL;
 
+console.log("DB_CON_URL", DB_CON_URL)
 mongoose.connect(DB_CON_URL, {
     authSource: "admin",
     useUnifiedTopology: true,

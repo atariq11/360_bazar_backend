@@ -1,16 +1,15 @@
 const { Command, Option } = require('commander');
 const program = new Command();
 
-program.addOption(
+const { envName } = program.addOption(
     new Option('-e, --env-name <string>', 'env name')
+        .env("HAMZA")
         .makeOptionMandatory(true)
-        .env("NODE_ENV")
-).parse().opts();
+).parse(process.argv).opts();
 
-const { NODE_ENV } = process.env;
-
+console.log("envName", envName);
 require('dotenv-expand').expand(require('dotenv').config({
-    path: `./envs/.env.${NODE_ENV}`
+    path: `./envs/.env.${envName}`
 }));
 
 module.exports = {};

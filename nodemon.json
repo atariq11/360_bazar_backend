@@ -1,7 +1,6 @@
 {
     "ignore": [
         "swagger-output.json",
-        "README",
-        "models/"
+        "README" 
     ]
 }

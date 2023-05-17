@@ -1,10 +1,15 @@
 const jwt = require("jsonwebtoken");
 const { ACCESS_TOKEN_SECRET, REFRESH_TOKEN_SECRET } = process.env;
-const { line } = require('./app.service');
-const authService = require('../routes/auth/auth.service');
+const bcrypt = require("bcryptjs");
+const { line } = require('./app.service'); 
+const usersModel = require('../models/users.model');
 const log = console.log;
 
 class service {
+    constructor() {
+        this.checkAuthentication = this.checkAuthentication.bind(this)
+        this.checkServiceAccount = this.checkServiceAccount.bind(this)
+    }
 
     async checkAuthentication({ authorization }) {
         if (!authorization) {
@@ -35,7 +40,7 @@ class service {
         } else {
             try {
                 const [username, password] = Buffer.from(tokenHash, 'base64').toString("utf8").split(":");
-                const serviceAccount = await authService.checkServiceAccount({ username, password });
+                const serviceAccount = await this.checkServiceAccount({ username, password });
                 return { ...serviceAccount, isServiceAccount: true };
             } catch (error) {
 
@@ -45,6 +50,24 @@ class service {
             }
         }
 
+    }
+
+    async checkServiceAccount(payload) {
+        const { email, password } = payload;
+
+        const foundUser = await usersModel.findOne({ email }).populate('role');
+
+        if (!foundUser) {
+            throw new Error("User not found")
+        }
+
+        const passwordMatched = await bcrypt.compare(password, foundUser.password);
+
+        if (!passwordMatched) {
+            throw new Error("Invalid password")
+        }
+
+        return foundUser;
     }
 
 
