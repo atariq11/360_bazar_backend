@@ -6,7 +6,7 @@ const { checkAuthentication, checkServiceAccount } = require('../services/auth.s
 const jwtService = require('../services/jwt.service');
 const emailService = require('../services/email.service');
 const usersModel = require('../models/users.model');
-const promoModel = require('../models/promo.model');
+const promoModel = require('../models/promoCodes.model');
 const authenticationMiddleware = require("../middlewares/authentication.middleware");
 const router = new express.Router();
 
@@ -51,8 +51,8 @@ class controller {
     async get(req, res) {
 
         const schema = joi.object().keys({
-            user: joi.string().optional(),
-            code: joi.string().optional()
+            userId: joi.string().optional(),
+            codeId: joi.string().optional()
         });
 
         const foundError = schema.validate(req.query).error;
@@ -64,7 +64,7 @@ class controller {
             });
         }
 
-        const foundData = await promoModel.find(req.query);
+        const foundData = await promoModel.find(req.query).populate(["user"]);
 
         return res.status(200).json({
             success: true,
