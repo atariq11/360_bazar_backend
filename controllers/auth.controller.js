@@ -28,7 +28,7 @@ class controller {
                 fullName: joi.string().required(),
                 email: joi.string().required(),
                 password: joi.string().required(),
-                role: joi.string().required()
+                roleId: joi.string().required()
             });
 
             const foundError = schema.validate(req.body).error;
@@ -42,7 +42,7 @@ class controller {
 
             const { email, password } = req.body;
 
-            const foundUser = await usersModel.findOne({ email });
+            const foundUser = await usersModel.findOne({ email }).populate("role");
 
             if (foundUser) {
                 return res.status(200).json({
@@ -60,8 +60,8 @@ class controller {
             //     data: newUser
             // });
 
-            req.body = { email, password } 
-            
+            req.body = { email, password }
+
             next()
 
         }).catch(next)
@@ -103,7 +103,7 @@ class controller {
                 httpOnly: true
             });
 
-            res.status(201).json({
+            res.status(200).json({
                 success: true,
                 message: "Success",
                 data: {
@@ -120,7 +120,7 @@ class controller {
             res.clearCookie("userAccessToken", { path: "/" });
             res.clearCookie("userRefreshToken", { path: "/" });
 
-            res.status(201).json({
+            res.status(200).json({
                 success: true,
                 message: "Success",
                 data: req.user.authUser
@@ -158,14 +158,14 @@ class controller {
             const { _id: userId, role } = foundUser;
             const { _id: roleId, code: roleCode } = role;
 
-            const { token } = await jwtService.getToken({ userId, email, roleId, roleCode }, "120s")
+            const { accessToken } = await jwtService.genToken({ userId, email, roleId, roleCode }, "120s")
 
             //const setusertoken = await usersModel.findByIdAndUpdate({ _id: foundUser._id }, { verifytoken: token }, { new: true });
 
             const sent = await emailService.sendEmail({
                 to: email,
                 subject: "Sending Email For password Reset",
-                text: `This Link Valid For 2 MINUTES http://${HOST}:${PORT}/forgot-password/${foundUser._id}/${token}`
+                text: `This Link Valid For 2 MINUTES http://${HOST}:${PORT}/auth/forgot-password/${foundUser._id}/${accessToken}`
             })
 
             if (sent) {

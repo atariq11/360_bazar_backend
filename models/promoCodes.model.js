@@ -10,13 +10,24 @@ const schema = new mongoose.Schema({
         unique: true
     },
 
-    user: {
+    userId: {
         type: ObjectId,
-        required: true,
-        ref: "users"
+        required: true
     }
 
+}, {
+    toJSON: { virtuals: true, versionKey: false, transform: (doc, ret) => delete ret._id }, // So `res.json()` and other `JSON.stringify()` functions include virtuals
+    toObject: { virtuals: true } // So `console.log()` and other functions that use `toObject()` include virtuals
 });
+
+
+schema.virtual('user', {
+    ref: 'users', // the collection/model name
+    localField: 'userId',
+    foreignField: '_id',
+    justOne: true, // default is false
+});
+
 
 module.exports = mongoose.model("promoCodes", schema);
 

@@ -7,32 +7,10 @@ const jwtService = require('../services/jwt.service');
 const emailService = require('../services/email.service');
 const usersModel = require('../models/users.model');
 const authenticationMiddleware = require("../middlewares/authentication.middleware");
+const usersCotroller = require("../controllers/users.cotroller");
 const router = new express.Router();
 
 
-router.get("/self", authenticationMiddleware(), async (req, res) => {
+router.get("/self", authenticationMiddleware(), usersCotroller.getSelfDetails);
 
-    const schema = joi.object().keys({
-        title: joi.string().optional(),
-        code: joi.string().optional()
-    });
-    console.log("get roles", req.query);
-    const foundError = schema.validate(req.query).error;
-
-    if (foundError) {
-        return res.status(200).json({
-            success: false,
-            message: `Invalid payload: ${foundError.message}`
-        });
-    }
-
-    const foundData = await usersModel.findById(req.user.authUser.userId);
-
-    return res.status(200).json({
-        success: true,
-        message: "Success",
-        data: foundData
-    });
-});
-
-module.exports = router
+module.exports = router;

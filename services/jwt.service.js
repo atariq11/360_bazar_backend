@@ -22,8 +22,8 @@ class service {
         return { ...decodedPayload, accessToken, refreshToken };
     }
 
-    async genToken(payload) {
-        const accessToken = jwt.sign(payload, ACCESS_TOKEN_SECRET, { expiresIn: ACCESS_TOKEN_LIFE });
+    async genToken(payload, expiresIn) {
+        const accessToken = jwt.sign(payload, ACCESS_TOKEN_SECRET, { expiresIn: expiresIn || ACCESS_TOKEN_LIFE });
         const refreshToken = jwt.sign(payload, REFRESH_TOKEN_SECRET, { expiresIn: REFRESH_TOKEN_LIFE });
 
         return { ...payload, accessToken, refreshToken };
