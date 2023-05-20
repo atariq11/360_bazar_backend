@@ -14,7 +14,7 @@ class controller {
     async add(req, res) {
 
         const schema = joi.object().keys({
-            user: joi.string().required(),
+            userId: joi.string().required(),
             code: joi.string().required()
         });
 
@@ -27,9 +27,9 @@ class controller {
             });
         }
 
-        const { code, user } = req.body;
+        const { code, userId } = req.body;
 
-        let foundData = await promoModel.findOne({ user, code });
+        let foundData = await promoModel.findOne({ userId, code });
 
         if (foundData) {
             return res.status(200).json({
@@ -52,7 +52,7 @@ class controller {
 
         const schema = joi.object().keys({
             userId: joi.string().optional(),
-            codeId: joi.string().optional()
+            code: joi.string().optional()
         });
 
         const foundError = schema.validate(req.query).error;

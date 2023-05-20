@@ -16,16 +16,16 @@ const schema = new mongoose.Schema({
     }
 
 }, {
-    toJSON: { virtuals: true, versionKey: false, transform: (doc, ret) => delete ret._id }, // So `res.json()` and other `JSON.stringify()` functions include virtuals
-    toObject: { virtuals: true } // So `console.log()` and other functions that use `toObject()` include virtuals
+    toJSON: { virtuals: true, versionKey: false, transform: (doc, ret) => delete ret._id },
+    toObject: { virtuals: true }
 });
 
 
 schema.virtual('user', {
-    ref: 'users', // the collection/model name
+    ref: 'users',
     localField: 'userId',
     foreignField: '_id',
-    justOne: true, // default is false
+    justOne: true,
 });
 
 
