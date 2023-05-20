@@ -2,23 +2,22 @@ const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const joi = require('joi');
-const { checkAuthentication, checkServiceAccount } = require('../services/auth.service');
-const jwtService = require('../services/jwt.service');
-const emailService = require('../services/email.service');
-const usersModel = require('../models/users.model');
 const promoModel = require('../models/promoCodes.model');
+const promoCodeRedeems = require('../models/promoCodeRedeems.model');
 const authenticationMiddleware = require("../middlewares/authentication.middleware");
+const appService = require("../services/app.service");
 const router = new express.Router();
 
+
 class controller {
-    async add(req, res) {
+
+    async addOrFetch(req, res) {
 
         const schema = joi.object().keys({
-            userId: joi.string().required(),
-            code: joi.string().required()
+            userId: joi.string().required()
         });
 
-        const foundError = schema.validate(req.body).error;
+        const foundError = schema.validate(req.params).error;
 
         if (foundError) {
             return res.status(200).json({
@@ -27,19 +26,21 @@ class controller {
             });
         }
 
-        const { code, userId } = req.body;
+        const { userId } = req.params;
 
-        let foundData = await promoModel.findOne({ userId, code });
+        const code = appService.getCode();
+
+        let foundData = await promoModel.findOne({ userId });
 
         if (foundData) {
             return res.status(200).json({
-                success: false,
-                message: "Record is already exist",
+                success: true,
+                message: "Success",
                 data: foundData
             });
         }
 
-        const newData = await promoModel.create(req.body);
+        const newData = await promoModel.create({ code, userId });
 
         return res.status(200).json({
             success: true,
@@ -70,6 +71,61 @@ class controller {
             success: true,
             message: "Success",
             data: foundData
+        });
+    }
+
+    async redeemPromoCode(req, res) {
+
+        const schema = joi.object().keys({
+            userId: joi.string().required(),
+            codeId: joi.string().required(),
+            code: joi.string().required()
+        }).xor("codeId", "code");
+
+        const foundError = schema.validate(req.body).error;
+
+        if (foundError) {
+            return res.status(200).json({
+                success: false,
+                message: `Invalid payload: ${foundError.message}`
+            });
+        }
+
+        const { codeId, code, userId } = req.body;
+
+        let foundCode = await promoModel.findOne({ id: codeId, code });
+        if (!foundCode) {
+            return res.status(200).json({
+                success: false,
+                message: "Promo code not found.",
+                data: foundData
+            });
+        }
+
+        if (foundCode.userId === userId) {
+            return res.status(200).json({
+                success: false,
+                message: "You can't redeem your own promo code.",
+                data: foundData
+            });
+        }
+
+        let foundData = await promoCodeRedeems.findOne({ userId, codeId });
+
+        if (foundData) {
+            return res.status(200).json({
+                success: false,
+                message: "You already reedem this promo code.",
+                data: foundData
+            });
+        }
+
+        const newData = await promoCodeRedeems.create(req.body);
+
+        return res.status(200).json({
+            success: true,
+            message: "Success",
+            data: newData
         });
     }
 }

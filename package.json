@@ -4,6 +4,8 @@
   "description": "",
   "main": "app.js",
   "scripts": {
+    "dev":"nodemon app.js --env-name dev",
+    "aimen":"nodemon app.js --env-name aimen",
     "lint": "eslint ./"
   },
   "keywords": [],
@@ -23,6 +25,7 @@
     "moment": "^2.29.4",
     "mongodb": "^5.5.0",
     "mongoose": "^7.1.1",
+    "nanoid": "^2.1.11",
     "nodemailer": "^6.9.1",
     "validator": "^13.9.0"
   },

@@ -6,6 +6,7 @@ const { checkAuthentication, checkServiceAccount } = require('../services/auth.s
 const jwtService = require('../services/jwt.service');
 const emailService = require('../services/email.service');
 const usersModel = require('../models/users.model');
+const rolesModel = require('../models/roles.model');
 const authenticationMiddleware = require("../middlewares/authentication.middleware");
 const router = new express.Router();
 
@@ -28,8 +29,9 @@ class controller {
                 fullName: joi.string().required(),
                 email: joi.string().required(),
                 password: joi.string().required(),
-                roleId: joi.string().required()
-            });
+                roleId: joi.string(),
+                roleCode: joi.string()
+            }).xor("roleId", "roleCode");
 
             const foundError = schema.validate(req.body).error;
 
@@ -40,7 +42,7 @@ class controller {
                 });
             }
 
-            const { email, password } = req.body;
+            const { fullName, email, password, roleId, roleCode } = req.body;
 
             const foundUser = await usersModel.findOne({ email }).populate("role");
 
@@ -52,7 +54,17 @@ class controller {
                 });
             }
 
-            const newUser = await usersModel.create(req.body);
+            console.log(roleId, roleCode);
+            const foundRole = await rolesModel.findOne({ id: roleId, code: roleCode });
+
+            if (!foundRole) {
+                return res.status(200).json({
+                    success: false,
+                    message: `Invalid role`
+                });
+            }
+
+            const newUser = await usersModel.create({ fullName, email, password, roleId: foundRole.id });
 
             // return res.status(200).json({
             //     success: true,

@@ -33,9 +33,10 @@ const schema = new mongoose.Schema({
     }
 
 }, {
-    toJSON: { virtuals: true, versionKey: false, transform: (doc, ret) => delete ret._id },
+    toJSON: { virtuals: true, versionKey: false, transform: (doc, ret) => { delete ret._id; return ret } },
     toObject: { virtuals: true }
 });
+//, versionKey: false, transform: (doc, ret) => delete ret._id
 
 schema.virtual('role', {
     ref: 'roles',
