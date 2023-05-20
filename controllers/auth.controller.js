@@ -177,7 +177,7 @@ class controller {
             const sent = await emailService.sendEmail({
                 to: email,
                 subject: "Sending Email For password Reset",
-                text: `This Link Valid For 2 MINUTES http://${HOST}:${PORT}/auth/forgot-password/${foundUser._id}/${accessToken}`
+                text: `This Link Valid For 2 MINUTES http://localhost:3000/forgot-password/${foundUser._id}/${accessToken}`
             })
 
             if (sent) {
