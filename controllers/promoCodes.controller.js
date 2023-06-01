@@ -1,12 +1,9 @@
-// const express = require("express");
-// const bcrypt = require("bcryptjs");
-// const jwt = require("jsonwebtoken");
+
 const joi = require('joi');
 const promoModel = require('../models/promoCodes.model');
 const promoCodeRedeems = require('../models/promoCodeRedeems.model');
-// const authenticationMiddleware = require("../middlewares/authentication.middleware");
 const appService = require("../services/app.service");
-// const router = new express.Router();
+
 
 
 class controller {
