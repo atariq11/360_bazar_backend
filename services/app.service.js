@@ -1,7 +1,4 @@
 
-// const moment = require('moment');
-// const log = console.log;
-// const path = require('path');
 const _ = require('lodash');
 const nanoid = require('nanoid');
 class service {
